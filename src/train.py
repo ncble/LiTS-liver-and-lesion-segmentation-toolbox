@@ -45,7 +45,7 @@ def main():
     parser.add_argument("--debug", action="store_true", default=False)
     parser.add_argument('--epochs', type=int, default=30, metavar='N',
                         help='number of epochs to train (default: 30)')
-    parser.add_argument("--batch-size", type=int, default=64,
+    parser.add_argument("--batch-size", type=int, default=32,
                         help="Batch size")
 
     parser.add_argument('--img-shape', type=str, default="(1,512,512)",
@@ -216,4 +216,5 @@ def main():
 
 if __name__ == "__main__":
     print("Start")
+    # usage: python train.py --epochs 20 --log-dir "./weights/Exp_000" -trainf "./data/train_LiTS_db.h5" -validf "./data/valid_LiTS_db.h5" --batch-size 16  --num-cpu 16 --shuffle
     main()

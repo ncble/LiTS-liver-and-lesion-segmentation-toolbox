@@ -135,14 +135,15 @@ def find_liver_bbox(msk):
     return bbmin, bbmax
 
 
-def preprocessing(data_dir,
+def preprocessing(filelist,
                   save2file,
                   hu_max=250,
                   hu_min=-200,
                   fix_direction=True,
                   rotation_90=True,
                   fix_spacing=False,
-                  file_format="npz"):
+                  file_format="npz",
+                  ):
     """
     Perform the following operations:
 
@@ -157,10 +158,7 @@ def preprocessing(data_dir,
     assert file_format in ['npz', 'h5'], "file format should be in ['npz', 'h5']"
     save2dir = os.path.split(save2file)[0]
     os.makedirs(save2dir, exist_ok=True)
-    filelist = get_filelist(data_dir)
-
-    # sort list according to the volume index [OTC]
-    filelist = sorted(filelist, key=lambda x: int(os.path.split(x)[-1].split(".")[0].split("-")[-1]))
+    
 
     if file_format == 'h5':
         h5_file = h5py.File(save2file, "a")
@@ -263,6 +261,57 @@ def preprocessing(data_dir,
         np.savez(save2file, **dataset)
 
 
+def main():
+    parser = argparse.ArgumentParser(description="Dataset preprocessing")
+    parser.add_argument('-dir', "--dirpath", type=str, default=None, required=True,
+                        help="dataset dirpath (of *.nii).")
+    parser.add_argument("--save2file", type=str, default=None,
+                        help="save data to a file (filepath will have prefix: train_ & valid_).")
+    parser.add_argument("--valid-split", type=float, default=0.2,
+                        help="validation set split rate [0, 1). (default to 0.2)")
+    parser.add_argument("--format", type=str, default='h5', choices=['h5', 'npz'],
+                        help="save dataset to file format (default: 'h5'). choices=['h5', 'npz']")
+    parser.add_argument("--debug", action="store_true", default=False)
+    args = parser.parse_args()
+
+    filelist = get_filelist(args.dirpath)
+    # sort list according to the volume index [OTC]
+    filelist = sorted(filelist, key=lambda x: int(os.path.split(x)[-1].split(".")[0].split("-")[-1]))
+
+    save2dir, filename = os.path.split(args.save2file)
+    os.makedirs(save2dir, exist_ok=True)
+
+    train_filepath = os.path.join(save2dir, f"train_{filename}")
+
+    train_filelist = filelist[:-int(len(filelist)*args.valid_split)]
+    preprocessing(train_filelist,
+                  train_filepath,
+                  hu_max=250,
+                  hu_min=-200,
+                  fix_direction=True,
+                  rotation_90=True,
+                  fix_spacing=False,
+                  file_format=args.format,
+                  )
+    if args.valid_split > 0:
+        valid_filepath = os.path.join(save2dir, f"valid_{filename}")
+        valid_filelist = filelist[-int(len(filelist)*args.valid_split):]
+
+        preprocessing(valid_filelist,
+                      valid_filepath,
+                      hu_max=250,
+                      hu_min=-200,
+                      fix_direction=True,
+                      rotation_90=True,
+                      fix_spacing=False,
+                      file_format=args.format,
+                      )
+
+    return 
+
 if __name__ == "__main__":
     print("Start")
-    preprocessing('./debug/batch', "./debug/LiTS_db8.npz")
+    # filelist = []
+    # preprocessing(filelist, "./data/LiTS_db.h5", file_format="h5")
+    # usage: python preprocessing.py -dir "./data" --save2file "./data/LiTS_db.h5"
+    main()

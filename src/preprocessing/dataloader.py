@@ -6,6 +6,7 @@ Warning: The code is released under the license GNU GPL 3.0
 """
 import os
 import glob
+import argparse
 import numpy as np
 import time
 import cv2
@@ -70,7 +71,8 @@ def infinite_dataloader(dataloader):
 
 if __name__ == "__main__":
     print("Start")
-    import argparse
+    # usage
+    # python dataloader.py -f "./data/train_LiTS_db.h5" --show
     parser = argparse.ArgumentParser(description="Visualize (static) dataloader results (for debug purpose)")
     parser.add_argument('-f', "--filepath", type=str, default=None, required=True,
                         help="dataset filepath.")
