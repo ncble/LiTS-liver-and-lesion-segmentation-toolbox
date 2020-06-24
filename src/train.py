@@ -43,7 +43,7 @@ def main():
                         help="Shuffle the dataset")
 
     parser.add_argument("--debug", action="store_true", default=False)
-    parser.add_argument('--epochs', type=int, default=30, metavar='N',
+    parser.add_argument('--epochs', type=int, default=30,
                         help='number of epochs to train (default: 30)')
     parser.add_argument("--batch-size", type=int, default=32,
                         help="Batch size")
