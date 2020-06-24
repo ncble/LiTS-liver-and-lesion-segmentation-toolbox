@@ -24,6 +24,10 @@ except:
 
 def CrossEntropyLoss(output, target, label_weights=[1., 1., 1.], ignore_index=-100, device=None):
     """
+    Warning: this loss contains the log-softmax (trick) activation !
+
+    :param output (torch tensor) shape = (N, C, H, W), C=3 three classes here
+    :param target (torch tensor) shape =  (N, H, W)
     :param label_weights (list) of length C. C is the number of classes.
 
     """
@@ -31,6 +35,42 @@ def CrossEntropyLoss(output, target, label_weights=[1., 1., 1.], ignore_index=-1
     loss_fn = torch.nn.CrossEntropyLoss(weight=weight, ignore_index=ignore_index)
 
     return loss_fn(output, target)
+
+
+def DiceLoss(output, target, label_weights=None, smooth=0.0001, device=None):
+    """Dice (aka F1-score) (Multi-class dice loss)
+
+        Dice = (2*|X & Y|) / (|X| + |Y|)
+             = 2*sum(|X*Y|) / (sum(X^2) + sum(Y^2))
+
+    :param output (torch FloatTensor) shape = (N, C, H, W)
+    :param target (torch LongTensor) shape = (N, H, W)
+    
+    - C: the number of classes
+    - label_weights: loss weights of each class (len(label_weights) == C)
+
+    return 1 - Dice
+    """
+    label_weights = torch.tensor(label_weights).to(device)
+
+    output = torch.nn.Sigmoid()(output)  # or approx output.exp()
+    # one-hot encoding of target
+    encoded_target = output.detach() * 0
+    encoded_target.scatter_(1, target.unsqueeze(1), 1)
+
+    if label_weights is None:
+        label_weights = 1
+
+    intersection = output * encoded_target
+    numerator = 2 * intersection.sum(0).sum(1).sum(1) + smooth
+    denominator = output + encoded_target
+    denominator = denominator.sum(0).sum(1).sum(1) + smooth
+    loss_per_channel = label_weights * (1 - (numerator / denominator))
+
+    return loss_per_channel.sum() / output.size(1)
+
+
+
 
 
 def main():
@@ -179,10 +219,11 @@ def main():
                 # TODO this is ugly: convert dtype and convert the shape from (N, 1, 512, 512) to (N, 512, 512)
                 msk = msk.to(torch.long).squeeze(1)
 
-                msk_pred = model(img)
+                msk_pred = model(img) # shape (N, 3, 512, 512)
 
                 # label_weights is determined according the liver_ratio & tumor_ratio
-                loss = CrossEntropyLoss(msk_pred, msk, label_weights=[1., 10., 100.], device=device)
+                # loss = CrossEntropyLoss(msk_pred, msk, label_weights=[1., 10., 100.], device=device)
+                loss = DiceLoss(msk_pred, msk, label_weights=[1., 10., 100.], device=device)
 
                 if valid_mode:
                     pass
