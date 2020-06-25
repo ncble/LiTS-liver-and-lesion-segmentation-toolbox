@@ -67,7 +67,7 @@ def DiceLoss(output, target, label_weights=None, smooth=0.0001, device=None):
     denominator = denominator.sum(0).sum(1).sum(1) + smooth
     loss_per_channel = label_weights * (1 - (numerator / denominator))
 
-    return loss_per_channel.sum() / output.size(1)
+    return loss_per_channel.sum() / (output.size(1)*label_weights.sum())
 
 
 
@@ -75,9 +75,9 @@ def DiceLoss(output, target, label_weights=None, smooth=0.0001, device=None):
 
 def main():
     parser = argparse.ArgumentParser(description="Train the model")
-    parser.add_argument('-trainf', "--train_filepath", type=str, default=None, required=True,
+    parser.add_argument('-trainf', "--train-filepath", type=str, default=None, required=True,
                         help="training dataset filepath.")
-    parser.add_argument('-validf', "--val_filepath", type=str, default=None,
+    parser.add_argument('-validf', "--val-filepath", type=str, default=None,
                         help="validation dataset filepath.")
     parser.add_argument("--shuffle", action="store_true", default=False,
                         help="Shuffle the dataset")
@@ -177,14 +177,16 @@ def main():
     model = UNet(in_ch=1,
                  out_ch=3,  # there are 3 classes: 0: background, 1: liver, 2: tumor
                  depth=4,
-                 start_ch=32,
+                 start_ch=64,
                  inc_rate=2,
                  padding=True,
                  batch_norm=True,
                  spec_norm=False,
                  dropout=0.5,
                  up_mode='upconv',
-                 include_top=True)
+                 include_top=True,
+                 include_last_act=False,
+                 )
     model.to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr, betas=(0.9, 0.95))  # TODO
     best_valid_loss = float('inf')
@@ -223,7 +225,7 @@ def main():
 
                 # label_weights is determined according the liver_ratio & tumor_ratio
                 # loss = CrossEntropyLoss(msk_pred, msk, label_weights=[1., 10., 100.], device=device)
-                loss = DiceLoss(msk_pred, msk, label_weights=[1., 10., 100.], device=device)
+                loss = DiceLoss(msk_pred, msk, label_weights=[1., 20., 50.], device=device)
 
                 if valid_mode:
                     pass

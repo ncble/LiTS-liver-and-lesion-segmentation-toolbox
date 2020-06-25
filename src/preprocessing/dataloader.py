@@ -42,6 +42,11 @@ class LiTSDataset(torch.utils.data.Dataset):
         self.dtype = dtype
         with h5py.File(self.filepath, "r") as file:
             self.num_samples = file['volumes'].shape[0]
+            self.volume_start_index = file['volume_start_index'][:]
+            self.spacing = file['spacing'][:]
+            # self.direction = file['direction'][:]
+            self.offset = file['offset'][:]
+
 
     def __len__(self):
         # the total number of samples

@@ -28,7 +28,8 @@ class UNet(nn.Module):
         spec_norm=False,
         dropout=0.5,
         up_mode='upconv',
-        include_top=True
+        include_top=True,
+        include_last_act=False,
     ):
         """
         Implementation of
@@ -58,6 +59,7 @@ class UNet(nn.Module):
         self.out_ch = out_ch
         self.depth = depth
         self.spec_norm = spec_norm
+        self.include_last_act = include_last_act
         prev_channels = in_ch
         self.down_path = nn.ModuleList()
         for i in range(depth+1):
@@ -82,7 +84,8 @@ class UNet(nn.Module):
                 self.last = nn.Conv2d(prev_channels, out_ch, kernel_size=1)
         else:
             self.out_ch = prev_channels
-        self.tanh_act = nn.Tanh()
+        if self.include_last_act:
+            self.tanh_act = nn.Tanh()
 
     def forward(self, x):
         blocks = []
@@ -97,8 +100,12 @@ class UNet(nn.Module):
 
         if self.include_top:
             x = self.last(x)
-            return self.tanh_act(x)
+            if self.include_last_act:
+                return self.tanh_act(x)
+            else:
+                return x
         else:
+            # no reason to apply activation here
             return x
 
 
