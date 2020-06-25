@@ -32,7 +32,8 @@ def main():
                         help="validation dataset filepath.")
     parser.add_argument("--shuffle", action="store_true", default=False,
                         help="Shuffle the dataset")
-
+    parser.add_argument("--load-weights", type=str, default=None,
+                        help="load pretrained weights")
     parser.add_argument("--debug", action="store_true", default=False)
     parser.add_argument('--epochs', type=int, default=30,
                         help='number of epochs to train (default: 30)')
@@ -94,7 +95,7 @@ def main():
                                                std=[0.5])
 
     # Warning: DO NOT use geometry transform (do it in the dataloader instead)
-    data_transform = transforms.Compose([ 
+    data_transform = transforms.Compose([
         # transforms.ToPILImage(mode='F'), # mode='F' for one-channel image
         # transforms.Resize((256, 256)) # NO
         # transforms.RandomResizedCrop(256), # NO
@@ -102,8 +103,8 @@ def main():
         # WARNING, ISSUE: transforms.ColorJitter doesn't work with ToPILImage(mode='F').
         # Need custom data augmentation functions: TODO
         # transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2),  # TODO TODO
-        transforms.ToTensor(), # already done in the dataloader
-        transform_normalize #
+        transforms.ToTensor(),  # already done in the dataloader
+        transform_normalize
     ])
 
     data_loader_params = {'batch_size': args.batch_size,
@@ -138,6 +139,10 @@ def main():
                  include_top=True,
                  include_last_act=False,
                  )
+    if args.load_weights:
+        printYellow(f"Loading pretrained weights from: {args.load_weights}...")
+        model.load_state_dict(torch.load(args.load_weights))
+        printYellow("+ Done.")
     model.to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr, betas=(0.9, 0.95))  # TODO
     best_valid_loss = float('inf')
@@ -172,7 +177,7 @@ def main():
                 # TODO this is ugly: convert dtype and convert the shape from (N, 1, 512, 512) to (N, 512, 512)
                 msk = msk.to(torch.long).squeeze(1)
 
-                msk_pred = model(img) # shape (N, 3, 512, 512)
+                msk_pred = model(img)  # shape (N, 3, 512, 512)
 
                 # label_weights is determined according the liver_ratio & tumor_ratio
                 # loss = CrossEntropyLoss(msk_pred, msk, label_weights=[1., 10., 100.], device=device)
