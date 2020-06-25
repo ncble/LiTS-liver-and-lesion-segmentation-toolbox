@@ -131,7 +131,6 @@ def inference():
 
     sigmoid_act = torch.nn.Sigmoid()
     st = time.time()
-    cum_loss = 0
 
     volume_start_index = test_set.volume_start_index
     spacing = test_set.spacing
@@ -183,26 +182,27 @@ def inference():
         if args.save2dir:
             outpath = os.path.join(args.save2dir, "results.csv")
         # create line for csv file
-        outstr = str(label) + ','
-        for l in [liver_scores, lesion_scores]:
-            for k, v in l.iteritems():
-                outstr += str(v) + ','
-                outstr += '\n'
-        # create header for csv file if necessary
-        if not os.path.isfile(outpath):
-            headerstr = 'Volume,'
-            for k, v in liver_scores.iteritems():
-                headerstr += 'Liver_' + k + ','
-            for k, v in liver_scores.iteritems():
-                headerstr += 'Lesion_' + k + ','
-            headerstr += '\n'
-            outstr = headerstr + outstr
-        # write to file
-        f = open(outpath, 'a+')
-        f.write(outstr)
-        f.close()
+        # outstr = str(vol_ind) + ','
+        # for l in [liver_scores, lesion_scores]:
+        #     for k, v in l.iteritems():
+        #         outstr += str(v) + ','
+        #         outstr += '\n'
+        # # create header for csv file if necessary
+        # if not os.path.isfile(outpath):
+        #     headerstr = 'Volume,'
+        #     for k, v in liver_scores.iteritems():
+        #         headerstr += 'Liver_' + k + ','
+        #     for k, v in liver_scores.iteritems():
+        #         headerstr += 'Lesion_' + k + ','
+        #     headerstr += '\n'
+        #     outstr = headerstr + outstr
+        # # write to file
+        # f = open(outpath, 'a+')
+        # f.write(outstr)
+        # f.close()
         # ===========================
     # import ipdb; ipdb.set_trace()
+    printGreen(f"Total elapsed time: {time.time()-st}")
     return results
 
 

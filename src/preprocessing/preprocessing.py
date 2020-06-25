@@ -156,7 +156,7 @@ def find_liver_bbox(msk):
 
 
 def resize_volume(volume, img_shape=None):
-    """resize the whole volume (z, x, y) to (z, img_shape[0], img_shape[1])
+    """resize one volume (z, x, y) to (z, img_shape[0], img_shape[1])
 
     :param img_shape (2-tuple or None)
 
@@ -164,7 +164,9 @@ def resize_volume(volume, img_shape=None):
         - assume volume's voxel in range [0, 1], 
         - resizing might affect the performance due to float-int rounding.
 
-    return resized volume
+    return resized volume, shape = (z, img_shape[0], img_shape[1])
+
+    Warning: this is a 2D per-slice-resize algorithm
     """
     if img_shape is None:
         # do noting
@@ -177,8 +179,63 @@ def resize_volume(volume, img_shape=None):
             # new_z.shape == img_shape (e.g (224, 224))
             vol_buffer.append(new_z)
         resized_vol = np.array(vol_buffer)
-        resized_vol = resized_vol.astype("float32") # [OPT] could be optimized
+        resized_vol = resized_vol.astype("float32")  # [OPT] could be optimized
         return resized_vol/255.
+
+
+def resize_mask(mask_vol, img_shape=None, num_classes=3):
+    """resize one mask-volume (z, H, W) to (z, img_shape[0], img_shape[1])
+    [OTC][OPT] 
+
+    :param img_shape (2-tuple or None)
+
+    First, we transform mask to one-hot encoding:
+        A simple solution is to:
+            1. flatten() (or reshape())
+            2. apply the usual one-hot encoding function
+            3. reshape()
+
+        Here, we do much better ! (use fancy python slicing trick): 
+            (only one step)
+
+            - one_hot = mask == np.arange(num_classes)[:, None, None]
+
+            mask.shape = (H, W)
+            one_hot.shape = (num_classes, H, W)
+
+            [OPT]: analyze the time cost
+
+
+    return resized mask volume, shape = (z, img_shape[0], img_shape[1])
+
+    Warning: this is a 2D per-slice-resize algorithm
+    """
+    if img_shape is None:
+        # do noting
+        return mask_vol
+    else:
+        vol_buffer = []
+        for mask in mask_vol:
+            # mask.shape = (H, W)
+            one_hot = mask == np.arange(num_classes)[:, None, None]
+            # one_hot.shape = (num_classes, H, W)
+            # [OPT] avoid transpose ?
+            one_hot = np.transpose(one_hot, axes=(1, 2, 0))  # (H, W, num_classes=3)
+
+            # [OTC]: only work here, since num_classes=3, otherwise do it per channels
+            assert num_classes == 3, "Modify the code: resize slice per channels (classes)"
+            resized_msk = cv2.resize(one_hot.astype(
+                np.uint8), (img_shape[1], img_shape[0]), interpolation=cv2.INTER_AREA)
+            # new.shape = (H, W, num_classes=3)
+            # TODO need better post-processing for resized_msk
+            vol_buffer.append(resized_msk)
+
+        vol_buffer = np.array(vol_buffer)  # shape (z, H, W, 3)
+        # decode one-hot
+        # TODO also need better post-processing here: classes priority
+        vol_buffer = np.argmax(vol_buffer, axis=-1)  # shape (z, H, W)
+
+        return vol_buffer.astype("int")  # dtype uint8 to int
 
 
 def preprocessing(filelist,
@@ -192,22 +249,25 @@ def preprocessing(filelist,
                   test_set=False,
                   img_shape=None,
                   ):
-    """
-    
+    """Preprocessing: collect and save all *.nii file into a .h5 file.
 
-    :hu_max/hu_min: HU-values clipping range
+    Perform the following operations (in order):
+    - fix HU shift (NotImplemented, TODO): using linear/adaptive histogram equalization (adapt_hist)
+    - fix direction (3, 3) matrix.
+    - rotate 90 degree
+    - HU clipping: (hu_min, hu_max)
+    - fix spacing factor (NotImplemented, TODO)
+    - transpose (x, y, z) to (z, x, y)
+    - remove irrelevant slices (along z-axis): only keep 20% of slices without labels
+    - resize volume/segmentation if needed (i.e. img_shape is not None)
+
+
+    :param hu_max/hu_min: HU-values clipping range
     :param img_shape (2-tuple or None)
     :param file_format (str): save data to a file. (choices: npz, h5)
 
-    Perform the following operations:
 
-    - fix HU shift (?, TODO): using linear/adaptive histogram equalization (adapt_hist)
-    - HU clipping: (hu_min, hu_max)
-    - fix direction (3, 3) matrix.
-    - rotate 90 degree
-    - fix spacing factor (?, TODO)
 
-    
     """
     assert file_format in ['npz', 'h5'], "file format should be in ['npz', 'h5']"
     save2dir = os.path.split(save2file)[0]
@@ -240,7 +300,7 @@ def preprocessing(filelist,
         img = np.transpose(img, axes=(2, 0, 1))
         if not test_set:
             msk = np.transpose(msk, axes=(2, 0, 1))
-    
+
         if not test_set:
             # [IMIMIM] TODO
             # remove/reduce slices without liver: extend +/- 10% of bbox
@@ -250,11 +310,11 @@ def preprocessing(filelist,
             img = img[max(0, bbmin_z-extend_z):min(num_z_slices-1, bbmax_z+extend_z)]
             msk = msk[max(0, bbmin_z-extend_z):min(num_z_slices-1, bbmax_z+extend_z)]
 
-        # resize the volume here if needed
-        if img_shape is not None: # equi to "if img_shape:"
-            img = resize_volume(img, img_shape=img_shape)
-            if not test_set:
-                msk = resize_volume(msk, img_shape=img_shape)
+        # resize the volume here if (img_shape is not None)
+        img = resize_volume(img, img_shape=img_shape)
+        if not test_set:
+            # TODO: make sure the quality of labels !!!
+            msk = resize_mask(msk, img_shape=img_shape)
 
         # import ipdb; ipdb.set_trace()
 
@@ -340,7 +400,7 @@ def main():
                         help="preprocessing test-set (valid_split will be set to 0)")
 
     args = parser.parse_args()
-    
+
     if args.img_shape:
         # convert str to tuple
         args.img_shape = tuple(map(int, args.img_shape.strip()[1:-1].split(",")))
