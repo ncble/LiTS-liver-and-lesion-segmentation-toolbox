@@ -268,6 +268,8 @@ def preprocessing(filelist,
                                        maxshape=(None, 3), dtype='float32')
                 h5_file.create_dataset('offset', data=offset[None, :],
                                        maxshape=(None, 3), dtype='float32')
+                h5_file.create_dataset('direction', data=np.diag(direction)[None, :],
+                                       maxshape=(None, 3), dtype='int')
                 if not test_set:
                     h5_file.create_dataset('segmentations', data=msk,
                                            maxshape=(None, shape[1], shape[2]), chunks=True, dtype='int')
@@ -284,6 +286,8 @@ def preprocessing(filelist,
                 h5_file['spacing'][-1:] = spacing[None, :]
                 h5_file['offset'].resize(h5_file['offset'].shape[0] + 1, axis=0)
                 h5_file['offset'][-1:] = offset[None, :]
+                h5_file['direction'].resize(h5_file['direction'].shape[0] + 1, axis=0)
+                h5_file['direction'][-1:] = np.diag(direction)[None, :]
                 if not test_set:
                     h5_file['segmentations'].resize(h5_file['segmentations'].shape[0] + msk.shape[0], axis=0)
                     h5_file['segmentations'][-msk.shape[0]:] = msk

@@ -79,9 +79,9 @@ class Surface(object):
         # But there might be some later metric implementation that requires the
         # points and then it would be good to have them. What is better?
         mask_pts = mask_edge_image.nonzero()
-        mask_edge_points = zip(mask_pts[0], mask_pts[1], mask_pts[2])
+        mask_edge_points = list(zip(mask_pts[0], mask_pts[1], mask_pts[2]))
         reference_pts = reference_edge_image.nonzero()
-        reference_edge_points = zip(reference_pts[0], reference_pts[1], reference_pts[2])
+        reference_edge_points = list(zip(reference_pts[0], reference_pts[1], reference_pts[2]))
 
         # check if there is actually an object present
         if 0 >= len(mask_edge_points):
@@ -92,10 +92,12 @@ class Surface(object):
         # add offsets to the voxels positions and multiply with physical voxel spacing
         # to get the real positions in millimeters
         physical_voxel_spacing = scipy.array(physical_voxel_spacing)
-        mask_edge_points += scipy.array(mask_offset)
-        mask_edge_points *= physical_voxel_spacing
-        reference_edge_points += scipy.array(reference_offset)
-        reference_edge_points *= physical_voxel_spacing
+#         mask_edge_points += scipy.array(mask_offset)
+#         mask_edge_points *= physical_voxel_spacing
+        mask_edge_points = list(map(lambda x: (x+scipy.array(mask_offset))*physical_voxel_spacing, mask_edge_points))
+        reference_edge_points = list(map(lambda x: (x+scipy.array(reference_offset))*physical_voxel_spacing, reference_edge_points))
+#         reference_edge_points += scipy.array(reference_offset)
+#         reference_edge_points *= physical_voxel_spacing
 
         # set member vars
         self.__mask_edge_points = mask_edge_points

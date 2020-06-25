@@ -132,7 +132,7 @@ def inference():
     sigmoid_act = torch.nn.Sigmoid()
     st = time.time()
     cum_loss = 0
-    
+
     volume_start_index = test_set.volume_start_index
     spacing = test_set.spacing
     # direction = dataloader_test.direction  # use it for the submission
@@ -178,14 +178,37 @@ def inference():
         lesion_scores = get_scores(volume_msk[:, 2] >= 0.5, volume_msk_gt == 2, spacing[vol_ind])
         print("Liver dice", liver_scores['dice'], "Lesion dice", lesion_scores['dice'])
         results.append([vol_ind, liver_scores, lesion_scores])
-    
-    import ipdb; ipdb.set_trace()
+
+        # ===========================
+        if args.save2dir:
+            outpath = os.path.join(args.save2dir, "results.csv")
+        # create line for csv file
+        outstr = str(label) + ','
+        for l in [liver_scores, lesion_scores]:
+            for k, v in l.iteritems():
+                outstr += str(v) + ','
+                outstr += '\n'
+        # create header for csv file if necessary
+        if not os.path.isfile(outpath):
+            headerstr = 'Volume,'
+            for k, v in liver_scores.iteritems():
+                headerstr += 'Liver_' + k + ','
+            for k, v in liver_scores.iteritems():
+                headerstr += 'Lesion_' + k + ','
+            headerstr += '\n'
+            outstr = headerstr + outstr
+        # write to file
+        f = open(outpath, 'a+')
+        f.write(outstr)
+        f.close()
+        # ===========================
+    # import ipdb; ipdb.set_trace()
     return results
 
 
 if __name__ == "__main__":
     print("Start")
-    # usage (evaluation mode) 
-    # python inference.py -eval -testf ./data/valid_LiTS_db_224.h5
-    # --load-weights "./weights/Exp_002/model_weights.pth" --batch-size 4
+    # usage (evaluation mode)
+    # python inference.py -eval -testf ./data/valid_LiTS_db_224.h5 --load-weights "./weights/Exp_002/model_weights.pth" --batch-size 4 --num-cpu 16
+    # 
     inference()
