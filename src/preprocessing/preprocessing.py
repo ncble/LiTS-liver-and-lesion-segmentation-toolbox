@@ -245,7 +245,7 @@ def preprocessing(filelist,
                   fix_direction=True,
                   rotation_90=True,
                   fix_spacing=False,
-                  file_format="npz",
+                  file_format="h5",
                   test_set=False,
                   img_shape=None,
                   ):
@@ -372,7 +372,7 @@ def preprocessing(filelist,
         h5_file['volume_start_index'][:] = np.cumsum(h5_file['volume_start_index'])
         h5_file.close()
 
-    elif file_format in ['npy', 'npz']:
+    elif file_format in ['npz']:  # 'npy',
         dataset = {'volumes': np.vstack(img_buffer),
                    'segmentations': np.vstack(msk_buffer),
                    'spacing': np.vstack(spacing_buffer),
@@ -455,7 +455,7 @@ if __name__ == "__main__":
     print("Start")
     # filelist = []
     # preprocessing(filelist, "./data/LiTS_db.h5", file_format="h5")
-    # usage: python preprocessing.py -dir "./data" --save2file "./data/LiTS_db.h5"
-    # usage (resize): python preprocessing.py -dir "./data" --save2file "./data/LiTS_db_224.h5" --img-shape "(224,224)"
-    # usage (test set): python preprocessing.py -dir "./data" --save2file "./data/LiTS_db.h5" --test-set
+    # usage: python ./src/preprocessing/preprocessing.py -dir "./data" --save2file "./data/LiTS_db.h5"
+    # usage (resize): python ./src/preprocessing/preprocessing.py -dir "./data" --save2file "./data/LiTS_db_224.h5" --img-shape "(224,224)"
+    # usage (test set): python ./src/preprocessing/preprocessing.py -dir "./data" --save2file "./data/LiTS_db.h5" --test-set
     main()

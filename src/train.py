@@ -181,7 +181,8 @@ def main():
 
                 # label_weights is determined according the liver_ratio & tumor_ratio
                 # loss = CrossEntropyLoss(msk_pred, msk, label_weights=[1., 10., 100.], device=device)
-                loss = DiceLoss(msk_pred, msk, label_weights=[1., 20., 50.], device=device)
+                # loss = DiceLoss(msk_pred, msk, label_weights=[1., 20., 50.], device=device)
+                loss = DiceLoss(msk_pred, msk, label_weights=[1., 20., 500.], device=device)
 
                 if valid_mode:
                     pass
@@ -208,7 +209,9 @@ def main():
                 best_valid_loss, valid_mean_loss))
             best_valid_loss = valid_mean_loss
             # Only need to save the weights
-            torch.save(model.state_dict(), best_model_path)
+            # torch.save(model.state_dict(), best_model_path)
+            # save the entire model
+            torch.save(model, best_model_path)
 
     return best_valid_loss
 

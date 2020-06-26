@@ -60,14 +60,19 @@ def get_scores(pred, label, vxlspacing):
 
 
 def inference():
+    """Support two mode: evaluation (on valid set) or inference mode (on test-set for submission)
+
+    """
     parser = argparse.ArgumentParser(description="Inference mode")
     parser.add_argument('-testf', "--test-filepath", type=str, default=None, required=True,
                         help="testing dataset filepath.")
     parser.add_argument("-eval", "--evaluate", action="store_true", default=False,
                         help="Evaluation mode")
-
     parser.add_argument("--load-weights", type=str, default=None,
-                        help="Load pretrained weights (filepath, default: None)")
+                        help="Load pretrained weights, torch state_dict() (filepath, default: None)")
+    parser.add_argument("--load-model", type=str, default=None,
+                        help="Load pretrained model, entire model (filepath, default: None)")
+
     parser.add_argument("--save2dir", type=str, default=None,
                         help="save the prediction labels to the directory (default: None)")
     parser.add_argument("--debug", action="store_true", default=False)
@@ -109,23 +114,28 @@ def inference():
                            )
     dataloader_test = torch.utils.data.DataLoader(test_set, **data_loader_params)
     # =================== Build model ===================
-    model = UNet(in_ch=1,
-                 out_ch=3,  # there are 3 classes: 0: background, 1: liver, 2: tumor
-                 depth=4,
-                 start_ch=64,
-                 inc_rate=2,
-                 padding=True,
-                 batch_norm=True,
-                 spec_norm=False,
-                 dropout=0.5,
-                 up_mode='upconv',
-                 include_top=True,
-                 include_last_act=False,
-                 )
-    model.to(device)
-    model.load_state_dict(torch.load(args.load_weights))
-    printYellow("Successfully loaded pretrained weights.")
+    if args.load_weights:
+        model = UNet(in_ch=1,
+                     out_ch=3,  # there are 3 classes: 0: background, 1: liver, 2: tumor
+                     depth=4,
+                     start_ch=64,
+                     inc_rate=2,
+                     padding=True,
+                     batch_norm=True,
+                     spec_norm=False,
+                     dropout=0.5,
+                     up_mode='upconv',
+                     include_top=True,
+                     include_last_act=False,
+                     )
+        model.load_state_dict(torch.load(args.load_weights))
+        printYellow("Successfully loaded pretrained weights.")
+    elif args.load_model:
+        # load entire model
+        model = torch.load(args.load_model)
+        printYellow("Successfully loaded pretrained model.")
     model.eval()
+    model.to(device)
 
     # n_batch_per_epoch = len(dataloader_test)
 
@@ -134,7 +144,7 @@ def inference():
 
     volume_start_index = test_set.volume_start_index
     spacing = test_set.spacing
-    # direction = dataloader_test.direction  # use it for the submission
+    direction = test_set.direction  # use it for the submission
 
     msk_pred_buffer = []
     if args.evaluate:
@@ -181,25 +191,26 @@ def inference():
         # ===========================
         if args.save2dir:
             outpath = os.path.join(args.save2dir, "results.csv")
+        # ======== code from official metric ========
         # create line for csv file
-        # outstr = str(vol_ind) + ','
-        # for l in [liver_scores, lesion_scores]:
-        #     for k, v in l.iteritems():
-        #         outstr += str(v) + ','
-        #         outstr += '\n'
-        # # create header for csv file if necessary
-        # if not os.path.isfile(outpath):
-        #     headerstr = 'Volume,'
-        #     for k, v in liver_scores.iteritems():
-        #         headerstr += 'Liver_' + k + ','
-        #     for k, v in liver_scores.iteritems():
-        #         headerstr += 'Lesion_' + k + ','
-        #     headerstr += '\n'
-        #     outstr = headerstr + outstr
-        # # write to file
-        # f = open(outpath, 'a+')
-        # f.write(outstr)
-        # f.close()
+        outstr = str(vol_ind) + ','
+        for l in [liver_scores, lesion_scores]:
+            for k, v in l.items():
+                outstr += str(v) + ','
+                outstr += '\n'
+        # create header for csv file if necessary
+        if not os.path.isfile(outpath):
+            headerstr = 'Volume,'
+            for k, v in liver_scores.items():
+                headerstr += 'Liver_' + k + ','
+            for k, v in liver_scores.items():
+                headerstr += 'Lesion_' + k + ','
+            headerstr += '\n'
+            outstr = headerstr + outstr
+        # write to file
+        f = open(outpath, 'a+')
+        f.write(outstr)
+        f.close()
         # ===========================
     # import ipdb; ipdb.set_trace()
     printGreen(f"Total elapsed time: {time.time()-st}")
@@ -210,5 +221,5 @@ if __name__ == "__main__":
     print("Start")
     # usage (evaluation mode)
     # python inference.py -eval -testf ./data/valid_LiTS_db_224.h5 --load-weights "./weights/Exp_002/model_weights.pth" --batch-size 4 --num-cpu 16
-    # 
+    #
     inference()
