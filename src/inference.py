@@ -42,9 +42,17 @@ def get_scores(pred, label, vxlspacing):
     volscores = {}
 
     volscores['dice'] = metric.dc(pred, label)
-    volscores['jaccard'] = metric.binary.jc(pred, label)
+    try:
+        jaccard = metric.binary.jc(pred, label)
+    except ZeroDivisionError:
+        jaccard = 0.0
+    volscores['jaccard'] = jaccard
     volscores['voe'] = 1. - volscores['jaccard']
-    volscores['rvd'] = metric.ravd(label, pred)
+    try:
+        rvd = metric.ravd(label, pred)
+    except:
+        rvd = None
+    volscores['rvd'] = rvd
 
     if np.count_nonzero(pred) == 0 or np.count_nonzero(label) == 0:
         volscores['assd'] = 0
@@ -109,7 +117,7 @@ def inference():
 
     test_set = LiTSDataset(args.test_filepath,
                            dtype=np.float32,
-                           transform=data_transform,
+                           pixelwise_transform=data_transform,
                            inference_mode=(not args.evaluate),
                            )
     dataloader_test = torch.utils.data.DataLoader(test_set, **data_loader_params)
@@ -120,6 +128,7 @@ def inference():
                      depth=4,
                      start_ch=64,
                      inc_rate=2,
+                     kernel_size=3,
                      padding=True,
                      batch_norm=True,
                      spec_norm=False,
@@ -220,6 +229,6 @@ def inference():
 if __name__ == "__main__":
     print("Start")
     # usage (evaluation mode)
-    # python inference.py -eval -testf ./data/valid_LiTS_db_224.h5 --load-weights "./weights/Exp_002/model_weights.pth" --batch-size 4 --num-cpu 16
+    # python ./src/inference.py -eval --batch-size 32 --num-cpu 32 -testf ./data/valid_LiTS_db_224.h5 --load-weights "./weights/Exp_002/model_weights.pth"
     #
     inference()

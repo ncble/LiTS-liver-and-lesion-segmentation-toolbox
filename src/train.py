@@ -15,9 +15,11 @@ import torch
 from torchvision import transforms
 
 try:
-    from models.unet import UNet
+    from models.unet import UNet  # TODO import *
+    from models.unet3d import UNet3D
     from models.losses import CrossEntropyLoss, DiceLoss, FocalLoss, IoULoss
-    from preprocessing.dataloader import LiTSDataset, infinite_dataloader
+    from preprocessing.dataloader import LiTSDataset, infinite_dataloader, GeoCompose
+    from preprocessing.data_augmentation import OpenCVRotateImage  # TODO import *
     from utils import printGreen, printRed, printBlue, printYellow
 except:
     # TODO: should support both relative/absolute import
@@ -101,36 +103,62 @@ def main():
         # transforms.RandomResizedCrop(256), # NO
         # transforms.RandomHorizontalFlip(p=0.5), # NO
         # WARNING, ISSUE: transforms.ColorJitter doesn't work with ToPILImage(mode='F').
-        # Need custom data augmentation functions: TODO
-        # transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2),  # TODO TODO
+        # Need custom data augmentation functions: TODO: DONE.
+        # transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2),
+
+        # Use OpenCVRotateImage, OpenCVXXX, ... (our implementation)
+        # OpenCVRotateImage((-10, 10)), # angles (in degree)
         transforms.ToTensor(),  # already done in the dataloader
         transform_normalize
     ])
 
-    data_loader_params = {'batch_size': args.batch_size,
-                          'shuffle': args.shuffle,
-                          'num_workers': args.num_cpu,
-                          #   'sampler': balanced_sampler,
-                          'drop_last': True,
-                          'pin_memory': False
-                          }
+    geo_transform = GeoCompose([
+        OpenCVRotation((-10, 10)),
+        # TODO add more data augmentation here
+    ])
+
+    def worker_init_fn(worker_id):
+        # WARNING spawn start method is used,
+        # worker_init_fn cannot be an unpicklable object, e.g., a lambda function.
+        # A work-around for issue #5059: https://github.com/pytorch/pytorch/issues/5059
+        np.random.seed()
+
+    data_loader_train = {'batch_size': args.batch_size,
+                         'shuffle': args.shuffle,
+                         'num_workers': args.num_cpu,
+                         #   'sampler': balanced_sampler,
+                         'drop_last': True, # for GAN-like
+                         'pin_memory': False,
+                         'worker_init_fn': worker_init_fn,
+                         }
+
+    data_loader_valid = {'batch_size': args.batch_size,
+                         'shuffle': False,
+                         'num_workers': args.num_cpu,
+                         'drop_last': False,
+                         'pin_memory': False,
+                         }
+
     train_set = LiTSDataset(args.train_filepath,
                             dtype=np.float32,
-                            transform=data_transform,
+                            # geometry_transform=geo_transform, # TODO enable data augmentation
+                            pixelwise_transform=data_transform,
                             )
     valid_set = LiTSDataset(args.val_filepath,
                             dtype=np.float32,
-                            transform=data_transform,
+                            pixelwise_transform=data_transform,
                             )
 
-    dataloader_train = torch.utils.data.DataLoader(train_set, **data_loader_params)
-    dataloader_valid = torch.utils.data.DataLoader(valid_set, **data_loader_params)
+    dataloader_train = torch.utils.data.DataLoader(train_set, **data_loader_train)
+    dataloader_valid = torch.utils.data.DataLoader(valid_set, **data_loader_valid)
     # =================== Build model ===================
+    # TODO: control the model by bash command
     model = UNet(in_ch=1,
                  out_ch=3,  # there are 3 classes: 0: background, 1: liver, 2: tumor
                  depth=4,
                  start_ch=64,
                  inc_rate=2,
+                 kernel_size=3,
                  padding=True,
                  batch_norm=True,
                  spec_norm=False,
@@ -168,7 +196,7 @@ def main():
             for iter_ind in range(n_batch_per_epoch):
                 supplement_logs = ""
                 # reset cumulated losses at the begining of each batch
-                # loss_manager.reset_losses() # TODO TODO
+                # loss_manager.reset_losses() # TODO: use torch.utils.tensorboard !!
                 optimizer.zero_grad()
 
                 img, msk = next(dataloader)
@@ -218,5 +246,5 @@ def main():
 
 if __name__ == "__main__":
     print("Start")
-    # usage: python train.py --epochs 50 -lr 0.0001 --log-dir "./weights/Exp_000" -trainf "./data/train_LiTS_db.h5" -validf "./data/valid_LiTS_db.h5" --batch-size 32  --num-cpu 32 --shuffle
+    # usage: python ./src/train.py --epochs 50 -lr 0.0001 --log-dir "./weights/Exp_000" -trainf "./data/train_LiTS_db.h5" -validf "./data/valid_LiTS_db.h5" --batch-size 32  --num-cpu 32 --shuffle
     main()

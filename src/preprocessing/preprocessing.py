@@ -215,7 +215,7 @@ def resize_mask(mask_vol, img_shape=None, num_classes=3):
         return mask_vol
     else:
         vol_buffer = []
-        for mask in mask_vol:
+        for mask in mask_vol: # [OPT] avoid for-loop
             # mask.shape = (H, W)
             one_hot = mask == np.arange(num_classes)[:, None, None]
             # one_hot.shape = (num_classes, H, W)

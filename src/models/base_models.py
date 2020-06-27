@@ -42,6 +42,24 @@ def ConvSN2d(in_channels, out_channels, kernel_size,
     return A
 
 
+def ConvSN3d(in_channels, out_channels, kernel_size,
+             stride=1,
+             padding=0,
+             dilation=1,
+             groups=1,
+             bias=True,
+             padding_mode='zeros'):
+    A = spectral_norm(nn.Conv3d(in_channels, out_channels,
+                                kernel_size=kernel_size,
+                                stride=stride,
+                                padding=padding,
+                                dilation=dilation,
+                                groups=groups,
+                                bias=bias))
+    # A.__class__.__name__ = 'ConvSN3d' ## [TODO]
+    return A
+
+
 def ConvTransposeSN2d(in_channels, out_channels, kernel_size,
                       stride=1,
                       padding=0,
@@ -62,11 +80,30 @@ def ConvTransposeSN2d(in_channels, out_channels, kernel_size,
     return A
 
 
+def ConvTransposeSN3d(in_channels, out_channels, kernel_size,
+                      stride=1,
+                      padding=0,
+                      output_padding=0,
+                      groups=1,
+                      bias=True,
+                      dilation=1,
+                      padding_mode='zeros'):
+    A = spectral_norm(nn.ConvTranspose3d(in_channels, out_channels,
+                                         kernel_size=kernel_size,
+                                         stride=stride,
+                                         padding=padding,
+                                         output_padding=output_padding,
+                                         groups=groups,
+                                         bias=bias,
+                                         dilation=dilation))
+    # A.__class__.__name__ = 'ConvTransposeSN3d' ## [TODO]
+    return A
+
+
 def LinearSN(in_features, out_features, bias=True):
     A = spectral_norm(nn.Linear(in_features, out_features, bias=bias))
     # A.__class__.__name__ = 'LinearSN' ## [TODO]
     return A
-
 
 
 if __name__ == "__main__":
@@ -74,4 +111,3 @@ if __name__ == "__main__":
     # img_shape = (3, 128, 128)
     # model = ...
     # A = summary(model, img_shape)
-

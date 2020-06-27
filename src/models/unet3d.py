@@ -2,6 +2,7 @@
 Copyright (C) 2020  Lu Lin
 Warning: The code is released under the license GNU GPL 3.0
 
+TODO: merge this to unet.py
 
 """
 import numpy as np
@@ -15,7 +16,7 @@ except:
     from models.base_models import *
 
 
-class UNet(nn.Module):
+class UNet3D(nn.Module):
     def __init__(
         self,
         in_ch=3,
@@ -53,7 +54,7 @@ class UNet(nn.Module):
                            learned upsampling.
                            'upsample' will use bilinear upsampling.
         """
-        super(UNet, self).__init__()
+        super(UNet3D, self).__init__()
         assert up_mode in ('upconv', 'upsample')
         self.include_top = include_top
         self.padding = padding
@@ -80,9 +81,9 @@ class UNet(nn.Module):
 
         if self.include_top:
             if self.spec_norm:
-                self.last = ConvSN2d(prev_channels, out_ch, kernel_size=1)
+                self.last = ConvSN3d(prev_channels, out_ch, kernel_size=1)
             else:
-                self.last = nn.Conv2d(prev_channels, out_ch, kernel_size=1)
+                self.last = nn.Conv3d(prev_channels, out_ch, kernel_size=1)
         else:
             self.out_ch = prev_channels
         if self.include_last_act:
@@ -94,7 +95,7 @@ class UNet(nn.Module):
             x = down(x)
             if i != len(self.down_path) - 1:
                 blocks.append(x)
-                x = F.max_pool2d(x, 2)
+                x = F.max_pool3d(x, 2)
 
         for i, up in enumerate(self.up_path):
             x = up(x, blocks[-i - 1])
@@ -121,26 +122,26 @@ class UNetConvBlock(nn.Module):
 
         if self.spec_norm:
             # [stride=1] padding = (k-1)/2
-            block.append(ConvSN2d(in_size, out_size,
+            block.append(ConvSN3d(in_size, out_size,
                                   kernel_size=kernel_size, padding=int(padding)))
         else:
             # [stride=1] padding = (k-1)/2
-            block.append(nn.Conv2d(in_size, out_size,
+            block.append(nn.Conv3d(in_size, out_size,
                                    kernel_size=kernel_size, padding=int(padding)))
         block.append(nn.ReLU())
         if batch_norm:
-            block.append(nn.BatchNorm2d(out_size))
+            block.append(nn.BatchNorm3d(out_size))
         if dropout is not None:
             block.append(nn.Dropout(p=dropout))
         if self.spec_norm:
-            block.append(ConvSN2d(out_size, out_size,
+            block.append(ConvSN3d(out_size, out_size,
                                   kernel_size=kernel_size, padding=int(padding)))
         else:
-            block.append(nn.Conv2d(out_size, out_size,
+            block.append(nn.Conv3d(out_size, out_size,
                                    kernel_size=kernel_size, padding=int(padding)))
         block.append(nn.ReLU())
         if batch_norm:
-            block.append(nn.BatchNorm2d(out_size))
+            block.append(nn.BatchNorm3d(out_size))
 
         self.block = nn.Sequential(*block)
 
@@ -172,23 +173,23 @@ class UNetUpBlock(nn.Module):
         if up_mode == 'upconv':
             if self.spec_norm:
                 # [stride=2] output_padding + kernel_size = 2(padding + 1)
-                self.up = ConvTransposeSN2d(
+                self.up = ConvTransposeSN3d(
                     in_size, out_size, kernel_size=kernel_size, stride=2, padding=padding, output_padding=output_padding)
             else:
                 # [stride=2] output_padding + kernel_size = 2(padding + 1)
-                self.up = nn.ConvTranspose2d(
+                self.up = nn.ConvTranspose3d(
                     in_size, out_size, kernel_size=kernel_size, stride=2, padding=padding, output_padding=output_padding)
         elif up_mode == 'upsample':
 
             if self.spec_norm:
                 self.up = nn.Sequential(
                     nn.Upsample(mode='bilinear', scale_factor=2),
-                    ConvSN2d(in_size, out_size, kernel_size=1),
+                    ConvSN3d(in_size, out_size, kernel_size=1),
                 )
             else:
                 self.up = nn.Sequential(
                     nn.Upsample(mode='bilinear', scale_factor=2),
-                    nn.Conv2d(in_size, out_size, kernel_size=1),
+                    nn.Conv3d(in_size, out_size, kernel_size=1),
                 )
         self.relu_act = nn.ReLU()
         self.conv_block = UNetConvBlock(
@@ -217,11 +218,11 @@ class UNetUpBlock(nn.Module):
 
 if __name__ == "__main__":
     print("Start")
-    img_shape = (1, 512, 512)
-    model = UNet(in_ch=1,
+    img_shape = (1, 32, 32, 32)
+    model = UNet3D(in_ch=1,
                  out_ch=3,
-                 depth=4,
-                 start_ch=64,
+                 depth=3,
+                 start_ch=32,
                  inc_rate=2,
                  kernel_size=3,
                  padding=True,

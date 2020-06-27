@@ -18,18 +18,76 @@ import h5py
 from PIL import Image, ImageEnhance
 
 
+class GeoCompose(object):
+    """Composes several transforms together.
+
+    A work-around for the issue: (pytorch) 
+        - #5059 https://github.com/pytorch/pytorch/issues/5059
+
+    Warning there are two type of transformation
+        1. geometry_transform: rotation, warpAffine, translation, etc
+        2. pixelwise_transform: color jitter, brightness, saturation, ToTensor(), normalize() etc
+
+    For (1.), we need both the image and the mask
+    For (2.), only need the image
+
+    This class is designed for the first type.
+
+    Args:
+        transforms (list of ``Transform`` objects): list of transforms to compose.
+
+    Example:
+        >>> GeoCompose([
+        >>>     OpenCVRotation(...)
+        >>>     
+        >>> ])
+    """
+
+    def __init__(self, transforms):
+        self.transforms = transforms
+
+    def __call__(self, img, msk):
+        for t in self.transforms:
+            img, msk = t(img, msk)
+        return img, msk
+
+    def __repr__(self):
+        format_string = self.__class__.__name__ + '('
+        for t in self.transforms:
+            format_string += '\n'
+            format_string += '    {0}'.format(t)
+        format_string += '\n)'
+        return format_string
+
+
 class LiTSDataset(torch.utils.data.Dataset):
     r"""LiTS dataset loader for training (Pytorch natively supported)
 
     Work with hdf5 or npy/npz file format. 
     Issue: https://discuss.pytorch.org/t/dataloader-when-num-worker-0-there-is-bug/25643
 
+    inference_mode: whether to return mask as well
+    geometry_transform: perform on both image and the mask
+    pixelwise_transform: only for image
+
+    return img, msk (if not inference_mode)
+    img.shape = (1, H, W)
+    msk.shape = (H, W)
+
+    Warning Issue (fixed): (numpy random doesn't work with pytorch dataloader under linux)
+        - (pytorch) #5059: https://github.com/pytorch/pytorch/issues/5059
+
+        - numpy doesn't properly handle RNG states when fork subprocesses. 
+          It's numpy's issue with multiprocessing tracked at numpy/numpy#9248
+
 
     """
 
     def __init__(self, filepath,  # sample_indices,
-                 transform=None,
+                 geometry_transform=None,
+                 pixelwise_transform=None,
                  inference_mode=False,
+                 num_classes=3,
                  dtype=np.float32,
                  ):
         """
@@ -38,8 +96,10 @@ class LiTSDataset(torch.utils.data.Dataset):
         super(LiTSDataset, self).__init__()
         self.filepath = filepath
         self.dataset = None
-        self.transform = transform
+        self.geometry_transform = geometry_transform
+        self.pixelwise_transform = pixelwise_transform
         self.inference_mode = inference_mode
+        self.num_classes = num_classes
         self.dtype = dtype
         with h5py.File(self.filepath, "r") as file:
             self.num_samples = file['volumes'].shape[0]
@@ -55,6 +115,7 @@ class LiTSDataset(torch.utils.data.Dataset):
     def __getitem__(self, index):
         # Generates one sample of data
         if self.dataset is None:
+            # this is a work-around of an issue
             self.dataset = h5py.File(self.filepath, "r")
 
         img = self.dataset['volumes'][index]  # shape (512, 512)
@@ -62,17 +123,24 @@ class LiTSDataset(torch.utils.data.Dataset):
             msk = self.dataset['segmentations'][index]  # .astype(self.dtype)  # shape (512, 512)
         # print(img.shape, msk.shape)
         # print(img.dtype, msk.dtype)
-        if self.transform:
-            # convert to
-            img = img[..., None]  # new shape (512,512,1) for PIL Image transform
-            img = self.transform(img)
-            # msk = self.transform(msk) ## TODO TODO TODO
+        if self.geometry_transform:
+            # img = img[..., None]  # new shape (512,512,1) for PIL Image transform
 
-            # img = img[None, ...] # new shape (1, 512,512)
-            # img = torch.from_numpy(img)  # (sharing storage without copying)
+            # [IMIMIM] before geometry transform, need one-hot encoding for mask
+            one_hot_msk = msk == np.arange(self.num_classes)[:, None, None]  # shape (num_classes, H, W)
+            one_hot_msk = np.transpose(one_hot_msk.astype(np.uint8), (1, 2, 0))  # shape (H, W, num_classes)
+            img, one_hot_msk = self.geometry_transform(img, one_hot_msk)
+            msk = np.argmax(one_hot_msk, axis=-1)  # decode one-hot
+        
+        if self.pixelwise_transform:  # include ToTensor() and normalized()
+            
+            img = self.pixelwise_transform(img)
+            # manually ToTensor()
+            # img = torch.from_numpy(img)
             if not self.inference_mode:
+                # manually ToTensor()
+                # torch.from_numpy (sharing storage without copying)
                 msk = torch.from_numpy(msk)  # cf. torch.tensor: copy data
-            # print(img.shape, msk.shape)
 
         if not self.inference_mode:
             return img, msk
@@ -119,6 +187,8 @@ def display_img_and_msk(img, msk):
 
 if __name__ == "__main__":
     print("Start")
+    from data_augmentation import OpenCVRotation
+
     # usage
     # python ./src/preprocessing/dataloader.py -f "./data/train_LiTS_db.h5" --shuffle
     parser = argparse.ArgumentParser(description="Visualize (static) dataloader results (for debug purpose)")
@@ -134,20 +204,34 @@ if __name__ == "__main__":
                         help="i.e no segmentation")
     args = parser.parse_args()
 
+    geo_transform = GeoCompose([
+        OpenCVRotation((-45, 45)),
+    ])
+
     data_transform = transforms.Compose([
         transforms.ToTensor(),
     ])
+
+    def worker_init_fn(worker_id):
+        # WARNING spawn start method is used,
+        # worker_init_fn cannot be an unpicklable object, e.g., a lambda function.
+        # np.random.seed(np.random.get_state()[1][0] + worker_id)
+        np.random.seed()
+        # torch.initial_seed()
+        # np.random.seed(int(torch.initial_seed()) % (2**32-1))
 
     data_loader_params = {'batch_size': args.batch_size,
                           'shuffle': args.shuffle,
                           'num_workers': args.num_cpu,
                           #   'sampler': balanced_sampler,
                           'drop_last': True,
-                          'pin_memory': False
+                          'pin_memory': False,
+                          'worker_init_fn': worker_init_fn,  # lambda _: np.random.seed() NO!!
                           }
 
     train_set = LiTSDataset(args.filepath,
-                            transform=data_transform,
+                            geometry_transform=geo_transform,
+                            pixelwise_transform=data_transform,
                             inference_mode=args.test_set,
                             dtype=np.float32,
                             )
@@ -175,6 +259,10 @@ if __name__ == "__main__":
         k = cv2.waitKey(0)
         if k == 27 or k == ord("q"):  # press 'Esc' or 'q' to quit
             break
+        elif k == ord("s"):
+            # press 's' to save image
+            N = len(glob.glob("./demo/*.jpg"))
+            cv2.imwrite(f"./demo/{N+1}.jpg", img)
         else:
             count += 1
             if args.test_set:
@@ -184,5 +272,5 @@ if __name__ == "__main__":
                 img = display_img_and_msk(img, msk)
 
             img = (img*255).astype(np.uint8)
-            # img = de_normalize(img)
+
             cv2.imshow("Press any key to continue; 'q'/Esc to quit", img)
