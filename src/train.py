@@ -19,7 +19,7 @@ try:
     from models.unet3d import UNet3D
     from models.losses import CrossEntropyLoss, DiceLoss, FocalLoss, IoULoss
     from preprocessing.dataloader import LiTSDataset, infinite_dataloader, GeoCompose
-    from preprocessing.data_augmentation import OpenCVRotateImage  # TODO import *
+    from preprocessing.data_augmentation import OpenCVRotation  # TODO import *
     from utils import printGreen, printRed, printBlue, printYellow
 except:
     # TODO: should support both relative/absolute import
@@ -86,6 +86,7 @@ def main():
             torch.cuda.manual_seed_all(args.seed)
 
     # TODO [OPT] enable multi-GPUs ?
+    # https://pytorch.org/tutorials/beginner/former_torchies/parallelism_tutorial.html
     device = torch.device("cuda:{}".format(args.cuda) if torch.cuda.is_available()
                           and (args.cuda >= 0) else "cpu")
 
@@ -106,14 +107,17 @@ def main():
         # Need custom data augmentation functions: TODO: DONE.
         # transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2),
 
-        # Use OpenCVRotateImage, OpenCVXXX, ... (our implementation)
-        # OpenCVRotateImage((-10, 10)), # angles (in degree)
+        # Use OpenCVRotation, OpenCVXXX, ... (our implementation)
+        # OpenCVRotation((-10, 10)), # angles (in degree)
         transforms.ToTensor(),  # already done in the dataloader
         transform_normalize
     ])
 
     geo_transform = GeoCompose([
-        OpenCVRotation((-10, 10)),
+        OpenCVRotation(angles=(-10, 10),
+                       scales=(0.9, 1.1),
+                       centers=(-0.05, 0.05)),
+                       
         # TODO add more data augmentation here
     ])
 
@@ -127,7 +131,7 @@ def main():
                          'shuffle': args.shuffle,
                          'num_workers': args.num_cpu,
                          #   'sampler': balanced_sampler,
-                         'drop_last': True, # for GAN-like
+                         'drop_last': True,  # for GAN-like
                          'pin_memory': False,
                          'worker_init_fn': worker_init_fn,
                          }
@@ -141,7 +145,7 @@ def main():
 
     train_set = LiTSDataset(args.train_filepath,
                             dtype=np.float32,
-                            # geometry_transform=geo_transform, # TODO enable data augmentation
+                            geometry_transform=geo_transform,  # TODO enable data augmentation
                             pixelwise_transform=data_transform,
                             )
     valid_set = LiTSDataset(args.val_filepath,

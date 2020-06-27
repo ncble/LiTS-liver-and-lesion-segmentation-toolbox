@@ -8,7 +8,8 @@ Pytorch build-in data augmentation used PIL.Image, however some functionalities 
 supported. For instance, 
 
     - transforms.ColorJitter doesn't work with ToPILImage(mode='F') # one-channel image
-
+    - transforms.
+    
 """
 import numpy as np
 import cv2
@@ -37,21 +38,30 @@ class OpenCVRotation(OpenCVdummy):
     """Counter-clockwise (random) rotation for torchvision.transform
     Support 2D images of shape (H, W, 3) or (H, W) or (H, W, 1)
 
+    Random rotation/rescale:
+        - angles (tuple/list): in degree
+        - scales (tuple/list): resize factor 
+        - centers (tuple/list): percentage of translation to the center
     """
 
-    def __init__(self, angles, scale=1.0):
+    def __init__(self, angles=(0., 0.), scales=(1.0, 1.0), centers=(0, 0)):
 
         assert len(angles) == 2, \
             'angles should be a list/tuple of (lower, upper) in degree'
-        self.angles = angles
-        self.scale = scale
 
-    def __call__(self, img, msk, center=None):
+        self.angles = angles
+        self.scales = scales
+        self.centers = centers
+
+    def __call__(self, img, msk):
         # np_rand_state = np.random.RandomState()
         # seed = np.random.get_state()[1][0]
         # np.random.seed(seed)
         # angle = np.float32(np_rand_state.uniform(*self.angles))
+        scale = np.random.uniform(*self.scales)
         angle = np.float32(np.random.uniform(*self.angles))
+        translate = np.random.uniform(*self.centers)
+
         # check type of img
         if not self._is_numpy_image(img):
             raise TypeError('img should be numpy array. Got {}'.format(type(img)))
@@ -74,11 +84,11 @@ class OpenCVRotation(OpenCVdummy):
         # channel = skimage.transform.rotate(channel, self.angles, resize=False, order=1, preserve_range=True)
 
         # use opencv to rotate image
-        if center is None:
-            h, w = img.shape[:2]  # (H, W, C)
-            center = (int(w/2), int(h/2))
-
-        M = cv2.getRotationMatrix2D(center, angle, self.scale)
+        h, w = img.shape[:2]  # (H, W, C)
+        
+        center = (int(w/2)+int(translate*w), int(h/2)+int(translate*h))
+        
+        M = cv2.getRotationMatrix2D(center, angle, scale)
         rotated = cv2.warpAffine(img, M, (w, h))
         rotated_msk = cv2.warpAffine(msk, M, (w, h))
 
@@ -94,6 +104,8 @@ class OpenCVRotation(OpenCVdummy):
         axarr[0].imshow(img)
         axarr[1].imshow(rot)
         plt.show()
+
+
 
 
 if __name__ == "__main__":

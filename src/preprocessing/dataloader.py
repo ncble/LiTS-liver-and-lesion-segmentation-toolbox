@@ -205,7 +205,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     geo_transform = GeoCompose([
-        OpenCVRotation((-45, 45)),
+        OpenCVRotation((-20, 20), (0.9, 1.1), centers=(-0.05, 0.05)),
     ])
 
     data_transform = transforms.Compose([
