@@ -187,7 +187,8 @@ def main():
     model.to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr, betas=(0.9, 0.95))  # TODO
     best_valid_loss = float('inf')
-
+    # TODO TODO: add learning decay
+    
     for epoch in range(args.epochs):
         for valid_mode, dataloader in enumerate([dataloader_train, dataloader_valid]):
             n_batch_per_epoch = len(dataloader)

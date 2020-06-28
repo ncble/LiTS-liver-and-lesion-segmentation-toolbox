@@ -1,6 +1,6 @@
 # LiTS-liver-and-lesion-segmentation-toolbox
 
-This Toolbox is designed for the research purpose only. 
+This Toolbox is designed for the research purpose only. Our research report can be found [here](https://drive.google.com/file/d/1QQplM7yrTCbezRzZIjpd4oIh-3ZlLWyf/view?usp=sharing).
 
 
 ## Environment setup

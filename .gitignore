@@ -12,6 +12,7 @@ data/
 test_data/
 weights/
 build/
+results/
 develop-eggs/
 dist/
 downloads/

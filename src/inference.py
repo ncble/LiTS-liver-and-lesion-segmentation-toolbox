@@ -221,10 +221,10 @@ def inference():
                     msk_pred = msk_pred[..., ::-1]
                 # save medical image header as well
                 # see: http://loli.github.io/medpy/generated/medpy.io.header.Header.html
-                file_header = med_header.Header(spacing=spacing[vol_ind],
-                                                offset=offset[vol_ind],
-                                                direction=np.diag(direction[vol_ind]))
-                # submission guide: 
+                file_header = med_header(spacing=tuple(spacing[vol_ind]),
+                                         offset=tuple(offset[vol_ind]),
+                                         direction=np.diag(direction[vol_ind]))
+                # submission guide:
                 # see: https://github.com/PatrickChrist/LITS-CHALLENGE/blob/master/submission-guide.md
                 # test-segmentation-X.nii
                 filepath = os.path.join(args.save2dir, f"test-segmentation-{vol_ind}.nii")
