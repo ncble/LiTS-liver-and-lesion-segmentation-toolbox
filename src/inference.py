@@ -18,7 +18,8 @@ import pickle
 import cv2
 import torch
 from torchvision import transforms
-
+from medy.io import header as med_header
+from medpy.io import save as med_save
 
 # Official way to calculate the metric
 from medpy import metric
@@ -157,6 +158,7 @@ def inference():
     volume_start_index = test_set.volume_start_index
     spacing = test_set.spacing
     direction = test_set.direction  # use it for the submission
+    offset = test_set.offset
 
     msk_pred_buffer = []
     if args.evaluate:
@@ -176,12 +178,11 @@ def inference():
             msk_pred = sigmoid_act(msk_pred)
         msk_pred_buffer.append(msk_pred.cpu().detach().numpy())
 
-        # TODO TODO: remember to correct 'direction' and np.transpose before the submission !!!
     msk_pred_buffer = np.vstack(msk_pred_buffer)  # shape (N, 3, H, W)
     if args.evaluate:
         msk_gt_buffer = np.vstack(msk_gt_buffer)
 
-        results = []
+    results = []
     for vol_ind, vol_start_ind in enumerate(volume_start_index):
         if vol_ind == len(volume_start_index) - 1:
             volume_msk = msk_pred_buffer[vol_start_ind:]  # shape (N, 3, H, W)
@@ -190,54 +191,78 @@ def inference():
         else:
             vol_end_ind = volume_start_index[vol_ind+1]
             volume_msk = msk_pred_buffer[vol_start_ind:vol_end_ind]  # shape (N, 3, H, W)
-
             if args.evaluate:
                 volume_msk_gt = msk_gt_buffer[vol_start_ind:vol_end_ind]
-        # liver
-        liver_scores = get_scores(volume_msk[:, 1] >= 0.5, volume_msk_gt >= 1, spacing[vol_ind])
-        # tumor
-        lesion_scores = get_scores(volume_msk[:, 2] >= 0.5, volume_msk_gt == 2, spacing[vol_ind])
-        print("Liver dice", liver_scores['dice'], "Lesion dice", lesion_scores['dice'])
-        results.append([vol_ind, liver_scores, lesion_scores])
-
-        # ===========================
-        if args.save2dir:
-            # outpath = os.path.join(args.save2dir, "results.csv")
-            outpath = os.path.join(args.save2dir, "results.pkl")
-
-        # ======== code from official metric ========
-        # create line for csv file
-        # outstr = str(vol_ind) + ','
-        # for l in [liver_scores, lesion_scores]:
-        #     for k, v in l.items():
-        #         outstr += str(v) + ','
-        #         outstr += '\n'
-        # # create header for csv file if necessary
-        # if not os.path.isfile(outpath):
-        #     headerstr = 'Volume,'
-        #     for k, v in liver_scores.items():
-        #         headerstr += 'Liver_' + k + ','
-        #     for k, v in liver_scores.items():
-        #         headerstr += 'Lesion_' + k + ','
-        #     headerstr += '\n'
-        #     outstr = headerstr + outstr
-        # # write to file
-        # f = open(outpath, 'a+')
-        # f.write(outstr)
-        # f.close()
-        # ===========================
-    # import ipdb; ipdb.set_trace()
-    with open(outpath, "w") as file:
-        final_result = {}
-        final_result['liver'] = defaultdict(lambda: defaultdict(list))
-        final_result['tumor'] = defaultdict(lambda: defaultdict(list))
-        for vol_ind, liver_scores, lesion_scores in results:
-            # [OTC] assuming vol_ind is continuous
-            for key in liver_scores:
-                final_result['liver'][key].append(liver_scores[key])
-            for key in lesion_scores:
-                final_result['tumor'][key].append(lesion_scores[key])
-        pickle.dump(final_result, file, protocol=3)
+        if args.evaluate:
+            # liver
+            liver_scores = get_scores(volume_msk[:, 1] >= 0.5, volume_msk_gt >= 1, spacing[vol_ind])
+            # tumor
+            lesion_scores = get_scores(volume_msk[:, 2] >= 0.5, volume_msk_gt == 2, spacing[vol_ind])
+            print("Liver dice", liver_scores['dice'], "Lesion dice", lesion_scores['dice'])
+            results.append([vol_ind, liver_scores, lesion_scores])
+            # ===========================
+            if args.save2dir:
+                # outpath = os.path.join(args.save2dir, "results.csv")
+                outpath = os.path.join(args.save2dir, "results.pkl")
+                with open(outpath, "w") as file:
+                    final_result = {}
+                    final_result['liver'] = defaultdict(lambda: defaultdict(list))
+                    final_result['tumor'] = defaultdict(lambda: defaultdict(list))
+                    for vol_ind, liver_scores, lesion_scores in results:
+                        # [OTC] assuming vol_ind is continuous
+                        for key in liver_scores:
+                            final_result['liver'][key].append(liver_scores[key])
+                        for key in lesion_scores:
+                            final_result['tumor'][key].append(lesion_scores[key])
+                    pickle.dump(final_result, file, protocol=3)
+                # ======== code from official metric ========
+                # create line for csv file
+                # outstr = str(vol_ind) + ','
+                # for l in [liver_scores, lesion_scores]:
+                #     for k, v in l.items():
+                #         outstr += str(v) + ','
+                #         outstr += '\n'
+                # # create header for csv file if necessary
+                # if not os.path.isfile(outpath):
+                #     headerstr = 'Volume,'
+                #     for k, v in liver_scores.items():
+                #         headerstr += 'Liver_' + k + ','
+                #     for k, v in liver_scores.items():
+                #         headerstr += 'Lesion_' + k + ','
+                #     headerstr += '\n'
+                #     outstr = headerstr + outstr
+                # # write to file
+                # f = open(outpath, 'a+')
+                # f.write(outstr)
+                # f.close()
+                # ===========================
+        else:
+            # import ipdb; ipdb.set_trace()
+            if args.save2dir:
+                # reverse the order, because we prioritize tumor, liver then background.
+                msk_pred = (volume_msk >= 0.5)[:, ::-1, ...]  # shape (N, 3, H, W)
+                msk_pred = np.argmax(msk_pred, axis=1)  # shape (N, H, W) = (z, x, y)
+                msk_pred = np.transpose(msk_pred, axes=(1, 2, 0))  # shape (x, y, z)
+                # remember to correct 'direction' and np.transpose before the submission !!!
+                if direction[vol_ind][0] == -1:
+                    # x-axis
+                    msk_pred = msk_pred[::-1, ...]
+                if direction[vol_ind][1] == -1:
+                    # y-axis
+                    msk_pred = msk_pred[:, ::-1, :]
+                if direction[vol_ind][2] == -1:
+                    # z-axis
+                    msk_pred = msk_pred[..., ::-1]
+                # save medical image header as well
+                # see: http://loli.github.io/medpy/generated/medpy.io.header.Header.html
+                file_header = med_header.Header(spacing=spacing[vol_ind],
+                                                offset=offset[vol_ind],
+                                                direction=direction[vol_ind])
+                # submission guide: 
+                # see: https://github.com/PatrickChrist/LITS-CHALLENGE/blob/master/submission-guide.md
+                # test-segmentation-X.nii
+                filepath = os.path.join(args.save2dir, f"test-segmentation-{vol_ind}.nii")
+                med_save(msk_pred, filepath, hdr=file_header)
 
     printGreen(f"Total elapsed time: {time.time()-st}")
     return results
