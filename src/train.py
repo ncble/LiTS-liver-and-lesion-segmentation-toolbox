@@ -165,9 +165,9 @@ def main():
         model = UNet(in_ch=1,
                      out_ch=3,  # there are 3 classes: 0: background, 1: liver, 2: tumor
                      depth=4,
-                     start_ch=64,
+                     start_ch=32, # 64
                      inc_rate=2,
-                     kernel_size=3,
+                     kernel_size=5, # 3 
                      padding=True,
                      batch_norm=True,
                      spec_norm=False,
@@ -222,8 +222,8 @@ def main():
 
                 # label_weights is determined according the liver_ratio & tumor_ratio
                 # loss = CrossEntropyLoss(msk_pred, msk, label_weights=[1., 10., 100.], device=device)
-                # loss = DiceLoss(msk_pred, msk, label_weights=[1., 20., 50.], device=device)
-                loss = DiceLoss(msk_pred, msk, label_weights=[1., 20., 500.], device=device)
+                loss = DiceLoss(msk_pred, msk, label_weights=[1., 20., 50.], device=device)
+                # loss = DiceLoss(msk_pred, msk, label_weights=[1., 20., 500.], device=device)
 
                 if valid_mode:
                     pass

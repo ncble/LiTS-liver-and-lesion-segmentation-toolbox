@@ -18,7 +18,8 @@ import pickle
 import cv2
 import torch
 from torchvision import transforms
-from medpy.io import header as med_header
+# from medpy.io import header as med_header
+from postprocessing.medpy_header import Header as med_header
 from medpy.io import save as med_save
 
 # Official way to calculate the metric
@@ -222,7 +223,7 @@ def inference():
                 # see: http://loli.github.io/medpy/generated/medpy.io.header.Header.html
                 file_header = med_header.Header(spacing=spacing[vol_ind],
                                                 offset=offset[vol_ind],
-                                                direction=direction[vol_ind])
+                                                direction=np.diag(direction[vol_ind]))
                 # submission guide: 
                 # see: https://github.com/PatrickChrist/LITS-CHALLENGE/blob/master/submission-guide.md
                 # test-segmentation-X.nii
