@@ -18,7 +18,7 @@ import pickle
 import cv2
 import torch
 from torchvision import transforms
-from medy.io import header as med_header
+from medpy.io import header as med_header
 from medpy.io import save as med_save
 
 # Official way to calculate the metric
@@ -201,41 +201,6 @@ def inference():
             print("Liver dice", liver_scores['dice'], "Lesion dice", lesion_scores['dice'])
             results.append([vol_ind, liver_scores, lesion_scores])
             # ===========================
-            if args.save2dir:
-                # outpath = os.path.join(args.save2dir, "results.csv")
-                outpath = os.path.join(args.save2dir, "results.pkl")
-                with open(outpath, "w") as file:
-                    final_result = {}
-                    final_result['liver'] = defaultdict(lambda: defaultdict(list))
-                    final_result['tumor'] = defaultdict(lambda: defaultdict(list))
-                    for vol_ind, liver_scores, lesion_scores in results:
-                        # [OTC] assuming vol_ind is continuous
-                        for key in liver_scores:
-                            final_result['liver'][key].append(liver_scores[key])
-                        for key in lesion_scores:
-                            final_result['tumor'][key].append(lesion_scores[key])
-                    pickle.dump(final_result, file, protocol=3)
-                # ======== code from official metric ========
-                # create line for csv file
-                # outstr = str(vol_ind) + ','
-                # for l in [liver_scores, lesion_scores]:
-                #     for k, v in l.items():
-                #         outstr += str(v) + ','
-                #         outstr += '\n'
-                # # create header for csv file if necessary
-                # if not os.path.isfile(outpath):
-                #     headerstr = 'Volume,'
-                #     for k, v in liver_scores.items():
-                #         headerstr += 'Liver_' + k + ','
-                #     for k, v in liver_scores.items():
-                #         headerstr += 'Lesion_' + k + ','
-                #     headerstr += '\n'
-                #     outstr = headerstr + outstr
-                # # write to file
-                # f = open(outpath, 'a+')
-                # f.write(outstr)
-                # f.close()
-                # ===========================
         else:
             # import ipdb; ipdb.set_trace()
             if args.save2dir:
@@ -263,7 +228,41 @@ def inference():
                 # test-segmentation-X.nii
                 filepath = os.path.join(args.save2dir, f"test-segmentation-{vol_ind}.nii")
                 med_save(msk_pred, filepath, hdr=file_header)
-
+    if args.save2dir:
+        # outpath = os.path.join(args.save2dir, "results.csv")
+        outpath = os.path.join(args.save2dir, "results.pkl")
+        with open(outpath, "wb") as file:
+            final_result = {}
+            final_result['liver'] = defaultdict(list)
+            final_result['tumor'] = defaultdict(list)
+            for vol_ind, liver_scores, lesion_scores in results:
+                # [OTC] assuming vol_ind is continuous
+                for key in liver_scores:
+                    final_result['liver'][key].append(liver_scores[key])
+                for key in lesion_scores:
+                    final_result['tumor'][key].append(lesion_scores[key])
+            pickle.dump(final_result, file, protocol=3)
+        # ======== code from official metric ========
+        # create line for csv file
+        # outstr = str(vol_ind) + ','
+        # for l in [liver_scores, lesion_scores]:
+        #     for k, v in l.items():
+        #         outstr += str(v) + ','
+        #         outstr += '\n'
+        # # create header for csv file if necessary
+        # if not os.path.isfile(outpath):
+        #     headerstr = 'Volume,'
+        #     for k, v in liver_scores.items():
+        #         headerstr += 'Liver_' + k + ','
+        #     for k, v in liver_scores.items():
+        #         headerstr += 'Lesion_' + k + ','
+        #     headerstr += '\n'
+        #     outstr = headerstr + outstr
+        # # write to file
+        # f = open(outpath, 'a+')
+        # f.write(outstr)
+        # f.close()
+        # ===========================
     printGreen(f"Total elapsed time: {time.time()-st}")
     return results
 

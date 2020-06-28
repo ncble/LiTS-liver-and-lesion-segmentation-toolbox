@@ -132,12 +132,12 @@ def find_liver_bbox(msk):
     msk.shape = (x_slices, y_slices, z_slices)
     (x, y, z)
 
-    mask description:
+    mask voxel value description:
         0: background
         1: liver (not include tumor)
         2: tumor 
 
-
+    return bbmin, bbmax  (array shape = (3, ))
     """
     len_x, len_y, len_z = msk.shape
     index0 = np.sum(msk, axis=(1, 2)) > 0

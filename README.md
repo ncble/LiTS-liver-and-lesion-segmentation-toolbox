@@ -5,7 +5,7 @@ This Toolbox is designed for the research purpose only.
 
 ## Environment setup
 
-We have developed our Toolbox with pytorch under python=3.6 and tested for both CUDA 10.0/10.2.
+We have developed our Toolbox with pytorch under python=3.6 and tested for both (CUDA 10.0 + pytorch=1.3.0) and (CUDA 10.2 + pytorch=1.0.0).
 
 Build virtual environment:
 
@@ -55,11 +55,11 @@ Under the root folder:
       $ python ./src/preprocessing/preprocessing.py -dir "./data" --save2file "./data/LiTS_db.h5" --test-set
 	
 
-- Interactively visualize dataloader (with data augmentation)
-      $ python ./src/preprocessing/dataloader.py -f ./data/train_LiTS_db_224.h5
+### Interactively visualize dataloader (with data augmentation)
+      $ python ./src/preprocessing/dataloader.py -f ./data/train_LiTS_db_224.h5 --shuffle
 
 
-![Image of LiTS](./demo/1.jpg)
+![Image of LiTS](./demo/7.jpg)
 ![Image of LiTS](./demo/4.jpg)
 ![Image of LiTS](./demo/5.jpg)
 
@@ -87,7 +87,30 @@ Note that we can either load pretrained weights (`model.state_dict()`) by --load
       $ python ./src/inference.py --batch-size 32 --num-cpu 32 -testf ./data/test_LiTS_db_224.h5 --load-model "./weights/Exp_000/model.pth" --save2dir ./results/Exp_000
 
 
-### Submission
+### Submission results
+
+
+--------------------
+
+
+### TODO list
+
+- [x] [dataset] medpy dataset header manipulation
+- [x] [dataset] file format selection
+- [x] [data augmentation] compatibility between opencv and pytorch's dataloader: muliti-processing issue with numpy.random in Linux
+- [x] [data augmentation] separate geometry transform and pixel-wise transform
+- [x] [preprocessing] resize/transform volumetric mask
+- [x] [dataloader] hdf5 file compatibility with pytorch's muliti-processing
+- [ ] Statistic of dataset
+- [ ] [device] enable Multi-GPU training (with NVLink): data vs. model parallelism in pytorch
+- [ ] [monitoring] Add pytorch's [tensorboard](https://pytorch.org/docs/stable/tensorboard.html) to ./src/train.py
+- [ ] Data augmentation zoo
+- [ ] loss functions zoo
+- [ ] model zoo
+- [ ] Hyperparameters tuning module
+- [ ] Add domain adaptation module
+
+
 
 
 

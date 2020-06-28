@@ -36,6 +36,9 @@ def main():
                         help="Shuffle the dataset")
     parser.add_argument("--load-weights", type=str, default=None,
                         help="load pretrained weights")
+    parser.add_argument("--load-model", type=str, default=None,
+                        help="load pretrained model, entire model (filepath, default: None)")
+
     parser.add_argument("--debug", action="store_true", default=False)
     parser.add_argument('--epochs', type=int, default=30,
                         help='number of epochs to train (default: 30)')
@@ -117,7 +120,7 @@ def main():
         OpenCVRotation(angles=(-10, 10),
                        scales=(0.9, 1.1),
                        centers=(-0.05, 0.05)),
-                       
+
         # TODO add more data augmentation here
     ])
 
@@ -157,24 +160,30 @@ def main():
     dataloader_valid = torch.utils.data.DataLoader(valid_set, **data_loader_valid)
     # =================== Build model ===================
     # TODO: control the model by bash command
-    model = UNet(in_ch=1,
-                 out_ch=3,  # there are 3 classes: 0: background, 1: liver, 2: tumor
-                 depth=4,
-                 start_ch=64,
-                 inc_rate=2,
-                 kernel_size=3,
-                 padding=True,
-                 batch_norm=True,
-                 spec_norm=False,
-                 dropout=0.5,
-                 up_mode='upconv',
-                 include_top=True,
-                 include_last_act=False,
-                 )
+
     if args.load_weights:
+        model = UNet(in_ch=1,
+                     out_ch=3,  # there are 3 classes: 0: background, 1: liver, 2: tumor
+                     depth=4,
+                     start_ch=64,
+                     inc_rate=2,
+                     kernel_size=3,
+                     padding=True,
+                     batch_norm=True,
+                     spec_norm=False,
+                     dropout=0.5,
+                     up_mode='upconv',
+                     include_top=True,
+                     include_last_act=False,
+                     )
         printYellow(f"Loading pretrained weights from: {args.load_weights}...")
         model.load_state_dict(torch.load(args.load_weights))
         printYellow("+ Done.")
+    elif args.load_model:
+        # load entire model
+        model = torch.load(args.load_model)
+        printYellow("Successfully loaded pretrained model.")
+
     model.to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr, betas=(0.9, 0.95))  # TODO
     best_valid_loss = float('inf')
