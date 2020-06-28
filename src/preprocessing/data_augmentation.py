@@ -9,7 +9,7 @@ supported. For instance,
 
     - transforms.ColorJitter doesn't work with ToPILImage(mode='F') # one-channel image
     - transforms.
-    
+
 """
 import numpy as np
 import cv2
@@ -20,9 +20,9 @@ class OpenCVdummy(object):
     """
     [Usage]:
 
-    Warning there are two type of transformations
-        1. Geometry: rotation, warpAffine, translation, etc
-        2. Pixel-wise: color jitter, brightness, saturation, etc
+    Warning there are two type of transformation
+        1. geometry_transform: rotation, warpAffine, translation, etc
+        2. pixelwise_transform: color jitter, brightness, saturation, ToTensor(), normalize() etc
 
     For (1.), we need both the image and the mask
     For (2.), only need the image

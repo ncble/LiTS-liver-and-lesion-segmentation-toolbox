@@ -11,11 +11,14 @@ import glob
 import numpy as np
 import argparse
 import time
+from tqdm import tqdm
+from collections import defaultdict
+import pickle
 
 import cv2
 import torch
 from torchvision import transforms
-from tqdm import tqdm
+
 
 # Official way to calculate the metric
 from medpy import metric
@@ -199,29 +202,43 @@ def inference():
 
         # ===========================
         if args.save2dir:
-            outpath = os.path.join(args.save2dir, "results.csv")
+            # outpath = os.path.join(args.save2dir, "results.csv")
+            outpath = os.path.join(args.save2dir, "results.pkl")
+
         # ======== code from official metric ========
         # create line for csv file
-        outstr = str(vol_ind) + ','
-        for l in [liver_scores, lesion_scores]:
-            for k, v in l.items():
-                outstr += str(v) + ','
-                outstr += '\n'
-        # create header for csv file if necessary
-        if not os.path.isfile(outpath):
-            headerstr = 'Volume,'
-            for k, v in liver_scores.items():
-                headerstr += 'Liver_' + k + ','
-            for k, v in liver_scores.items():
-                headerstr += 'Lesion_' + k + ','
-            headerstr += '\n'
-            outstr = headerstr + outstr
-        # write to file
-        f = open(outpath, 'a+')
-        f.write(outstr)
-        f.close()
+        # outstr = str(vol_ind) + ','
+        # for l in [liver_scores, lesion_scores]:
+        #     for k, v in l.items():
+        #         outstr += str(v) + ','
+        #         outstr += '\n'
+        # # create header for csv file if necessary
+        # if not os.path.isfile(outpath):
+        #     headerstr = 'Volume,'
+        #     for k, v in liver_scores.items():
+        #         headerstr += 'Liver_' + k + ','
+        #     for k, v in liver_scores.items():
+        #         headerstr += 'Lesion_' + k + ','
+        #     headerstr += '\n'
+        #     outstr = headerstr + outstr
+        # # write to file
+        # f = open(outpath, 'a+')
+        # f.write(outstr)
+        # f.close()
         # ===========================
     # import ipdb; ipdb.set_trace()
+    with open(outpath, "w") as file:
+        final_result = {}
+        final_result['liver'] = defaultdict(lambda: defaultdict(list))
+        final_result['tumor'] = defaultdict(lambda: defaultdict(list))
+        for vol_ind, liver_scores, lesion_scores in results:
+            # [OTC] assuming vol_ind is continuous
+            for key in liver_scores:
+                final_result['liver'][key].append(liver_scores[key])
+            for key in lesion_scores:
+                final_result['tumor'][key].append(lesion_scores[key])
+        pickle.dump(final_result, file, protocol=3)
+
     printGreen(f"Total elapsed time: {time.time()-st}")
     return results
 

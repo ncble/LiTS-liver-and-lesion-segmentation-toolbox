@@ -193,15 +193,15 @@ if __name__ == "__main__":
     # python ./src/preprocessing/dataloader.py -f "./data/train_LiTS_db.h5" --shuffle
     parser = argparse.ArgumentParser(description="Visualize (static) dataloader results (for debug purpose)")
     parser.add_argument('-f', "--filepath", type=str, default=None, required=True,
-                        help="dataset filepath.")
+                        help="dataset filepath (default None) required=True")
     parser.add_argument("--num-cpu", type=int, default=8,
-                        help="Number of CPUs to use in parallel for dataloader.")
+                        help="Number of CPUs to use in parallel for dataloader (default: 8).")
     parser.add_argument("--shuffle", action="store_true", default=False,
-                        help="Shuffle the dataset")
+                        help="Shuffle the dataset (default: False)")
     parser.add_argument("--batch-size", type=int, default=64,
-                        help="Batch size")
+                        help="Batch size (default: 64)")
     parser.add_argument("--test-set", action="store_true", default=False,
-                        help="i.e no segmentation")
+                        help="i.e no segmentation (default: False)")
     args = parser.parse_args()
 
     geo_transform = GeoCompose([
